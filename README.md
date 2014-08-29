@@ -1,9 +1,10 @@
-# jade
+# Jade for Go
 --
     import "github.com/go-floki/jade"
 
 Jade is an elegant templating engine. This is its implementation for 
-Go Programming Language. Code is based on the Amber project.
+Go Programming Language. Code is based on the Amber project. This 
+project is a part of the Floki Web application framework.
 
 ### Tags
 
