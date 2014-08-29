@@ -1,4 +1,4 @@
-# amber
+# jade
 --
     import "github.com/go-floki/jade"
 
