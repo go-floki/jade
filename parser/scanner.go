@@ -30,6 +30,7 @@ const (
 	tokExtends
 	tokMixin
 	tokMixinCall
+	tokBuffered
 )
 
 const (
@@ -138,6 +139,10 @@ func (s *scanner) Next() *token {
 		}
 
 		if tok := s.scanBlock(); tok != nil {
+			return tok
+		}
+
+		if tok := s.scanBuffered(); tok != nil {
 			return tok
 		}
 
@@ -520,6 +525,61 @@ func (s *scanner) scanText() *token {
 		}
 
 		return &token{tokText, sm[2], map[string]string{"Mode": mode}, nil}
+	}
+
+	return nil
+}
+
+func (s *scanner) scanBuffered() *token {
+	i := 0
+	bsize := len(s.buffer)
+	for ; i < bsize; i++ {
+		if s.buffer[i] == ' ' {
+			continue
+
+		} else if s.buffer[i] == '=' {
+			// escaped buffer
+
+			i++
+			if i >= bsize {
+				return nil
+			}
+
+			for s.buffer[i] == ' ' && i < bsize {
+				i++
+			}
+
+			value := s.buffer[i:]
+
+			s.consume(len(s.buffer))
+
+			return &token{tokBuffered, value, map[string]string{"Mode": "escaped"}, nil}
+
+		} else if s.buffer[i] == '!' {
+			// unescaped buffer
+
+			i++
+			if i < bsize && s.buffer[i] == '=' {
+				i++
+				if i >= bsize {
+					return nil
+				}
+
+				for s.buffer[i] == ' ' && i < bsize {
+					i++
+				}
+
+				value := s.buffer[i:]
+
+				s.consume(len(s.buffer))
+
+				return &token{tokBuffered, value, map[string]string{"Mode": "unescaped"}, nil}
+			}
+
+		} else {
+			break
+		}
+
 	}
 
 	return nil

@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -57,7 +58,9 @@ func (p *Parser) Parse() *Block {
 			if len(pos.Filename) > 0 {
 				panic(fmt.Sprintf("Jade Error in <%s>: %v - Line: %d, Column: %d, Length: %d", pos.Filename, r, pos.LineNum, pos.ColNum, pos.TokenLength))
 			} else {
-				panic(fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d", r, pos.LineNum, pos.ColNum, pos.TokenLength))
+				trace := make([]byte, 1024)
+				_ = runtime.Stack(trace, true)
+				panic(fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d\n%s", r, pos.LineNum, pos.ColNum, pos.TokenLength, trace))
 			}
 		}
 	}()
@@ -150,6 +153,8 @@ func (p *Parser) parse() Node {
 		return p.parseImport()
 	case tokTag:
 		return p.parseTag()
+	case tokBuffered:
+		return p.parseBuffered()
 	case tokAssignment:
 		return p.parseAssignment()
 	case tokNamedBlock:
@@ -337,6 +342,13 @@ func (p *Parser) parseComment() *Comment {
 func (p *Parser) parseText() *Text {
 	tok := p.expect(tokText)
 	node := newText(tok.Value, tok.Data["Mode"] == "raw")
+	node.SourcePosition = p.pos()
+	return node
+}
+
+func (p *Parser) parseBuffered() *Buffered {
+	tok := p.expect(tokBuffered)
+	node := newBuffered(tok.Value, tok.Data["Mode"] == "escaped")
 	node.SourcePosition = p.pos()
 	return node
 }

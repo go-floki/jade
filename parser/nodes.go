@@ -213,6 +213,19 @@ func newEach(exp string) *Each {
 	return each
 }
 
+type Buffered struct {
+	SourcePosition
+	Expression string
+	Escaped    bool
+}
+
+func newBuffered(expression string, escaped bool) *Buffered {
+	buff := new(Buffered)
+	buff.Expression = expression
+	buff.Escaped = escaped
+	return buff
+}
+
 type Assignment struct {
 	SourcePosition
 	X          string

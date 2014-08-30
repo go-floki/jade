@@ -308,6 +308,8 @@ func (c *Compiler) visit(node parser.Node) {
 		c.visitCondition(node.(*parser.Condition))
 	case *parser.Each:
 		c.visitEach(node.(*parser.Each))
+	case *parser.Buffered:
+		c.visitBuffered(node.(*parser.Buffered))
 	case *parser.Assignment:
 		c.visitAssignment(node.(*parser.Assignment))
 	case *parser.Mixin:
@@ -396,6 +398,14 @@ func (c *Compiler) visitEach(each *parser.Each) {
 	}
 	c.visitBlock(each.Block)
 	c.write(`{{end}}`)
+}
+
+func (c *Compiler) visitBuffered(buff *parser.Buffered) {
+	if buff.Escaped {
+		c.write(`{{` + c.visitRawInterpolation(buff.Expression) + `}}`)
+	} else {
+		c.write(`{{unescaped ` + c.visitRawInterpolation(buff.Expression) + `}}`)
+	}
 }
 
 func (c *Compiler) visitAssignment(assgn *parser.Assignment) {

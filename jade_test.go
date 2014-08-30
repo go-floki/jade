@@ -151,6 +151,35 @@ func Test_JadeAttribute2(t *testing.T) {
 	}
 }
 
+func Test_BufferedCode(t *testing.T) {
+	res, err := run(`= $`, "1")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `1`, t)
+	}
+
+	res, err = run(`= $`, "\"")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `&#34;`, t)
+	}
+
+}
+
+func Test_BufferedUnescapedCode(t *testing.T) {
+	res, err := run(`!= $`, "%")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `%`, t)
+	}
+}
+
 func Test_EmptyAttribute(t *testing.T) {
 	res, err := run(`div[name]`, nil)
 
