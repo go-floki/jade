@@ -23,6 +23,7 @@ const (
 	tokAttributeList
 	tokIf
 	tokElse
+	tokUnless
 	tokEach
 	tokAssignment
 	tokImport
@@ -289,6 +290,7 @@ func (s *scanner) scanDoctype() *token {
 
 var rgxIf = regexp.MustCompile(`^if\s+(.+)$`)
 var rgxElse = regexp.MustCompile(`^else\s*`)
+var rgxUnless = regexp.MustCompile(`^unless\s+(.+)$`)
 
 func (s *scanner) scanCondition() *token {
 	if sm := rgxIf.FindStringSubmatch(s.buffer); len(sm) != 0 {
@@ -299,6 +301,11 @@ func (s *scanner) scanCondition() *token {
 	if sm := rgxElse.FindStringSubmatch(s.buffer); len(sm) != 0 {
 		s.consume(len(sm[0]))
 		return &token{tokElse, "", nil, nil}
+	}
+
+	if sm := rgxUnless.FindStringSubmatch(s.buffer); len(sm) != 0 {
+		s.consume(len(sm[0]))
+		return &token{tokUnless, sm[1], nil, nil}
 	}
 
 	return nil

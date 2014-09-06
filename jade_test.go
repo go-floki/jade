@@ -151,8 +151,27 @@ func Test_JadeAttribute2(t *testing.T) {
 	}
 }
 
+func Test_JadeAttributeEscaping(t *testing.T) {
+	res, err := run(`p(style=$)`, "<div>")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<p style="&lt;div&gt;"></p>`, t)
+	}
+}
+
 func Test_BufferedCode(t *testing.T) {
-	res, err := run(`= $`, "1")
+
+	res, err := run(`p= "test"`, "")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<p>test</p>`, t)
+	}
+
+	res, err = run(`= $`, "1")
 
 	if err != nil {
 		t.Fatal(err.Error())
@@ -168,6 +187,14 @@ func Test_BufferedCode(t *testing.T) {
 		expect(res, `&#34;`, t)
 	}
 
+	res, err = run(`p= $`, "\"")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<p>&#34;</p>`, t)
+	}
+
 }
 
 func Test_BufferedUnescapedCode(t *testing.T) {
@@ -178,6 +205,57 @@ func Test_BufferedUnescapedCode(t *testing.T) {
 	} else {
 		expect(res, `%`, t)
 	}
+
+	res, err = run(`p!= $`, "%")
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<p>%</p>`, t)
+	}
+}
+
+func Test_Conditional(t *testing.T) {
+	res, err := run(`if $
+		p`, true)
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<p></p>`, t)
+	}
+
+	res, err = run(`if $
+		p
+else
+		i`, false)
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<i></i>`, t)
+	}
+
+	res, err = run(`if $
+		p
+else if !$
+		i`, false)
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<i></i>`, t)
+	}
+
+	res, err = run(`unless $
+		i`, false)
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<i></i>`, t)
+	}
+
 }
 
 func Test_EmptyAttribute(t *testing.T) {

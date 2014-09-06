@@ -137,7 +137,47 @@ func (p *Parser) parseRelativeFile(filename string) *Parser {
 	return parser
 }
 
+func tokenKind2Str(token rune) string {
+	switch token {
+	case tokDoctype:
+		return "tokDoctype"
+	case tokComment:
+		return "tokComment"
+	case tokText:
+		return "tokText"
+	case tokIf:
+		return "tokIf"
+	case tokElse:
+		return "tokElse"
+	case tokUnless:
+		return "tokUnless"
+	case tokEach:
+		return "tokEach"
+	case tokImport:
+		return "tokImport"
+	case tokTag:
+		return "tokTag"
+	case tokBuffered:
+		return "tokBuffered"
+	case tokAssignment:
+		return "tokAssignment"
+	case tokNamedBlock:
+		return "tokNamedBlock"
+	case tokExtends:
+		return "tokExtends"
+	case tokIndent:
+		return "tokIndent"
+	case tokMixin:
+		return "tokMixin"
+	case tokMixinCall:
+		return "tokMixinCall"
+	}
+	return "unknown"
+}
+
 func (p *Parser) parse() Node {
+	//fmt.Println("token:", tokenKind2Str(p.currenttoken.Kind))
+
 	switch p.currenttoken.Kind {
 	case tokDoctype:
 		return p.parseDoctype()
@@ -147,6 +187,8 @@ func (p *Parser) parse() Node {
 		return p.parseText()
 	case tokIf:
 		return p.parseIf()
+	case tokUnless:
+		return p.parseUnless()
 	case tokEach:
 		return p.parseEach()
 	case tokImport:
@@ -263,6 +305,21 @@ readmore:
 		} else {
 			panic("Unexpected token!")
 		}
+		goto readmore
+	}
+
+	return cnd
+}
+
+func (p *Parser) parseUnless() *Condition {
+	tok := p.expect(tokUnless)
+	cnd := newCondition("!(" + tok.Value + ")")
+	cnd.SourcePosition = p.pos()
+
+readmore:
+	switch p.currenttoken.Kind {
+	case tokIndent:
+		cnd.Positive = p.parseBlock(cnd)
 		goto readmore
 	}
 
@@ -421,6 +478,12 @@ readmore:
 			tag.Block.pushFront(p.parseText())
 			goto readmore
 		}
+
+	case tokBuffered:
+		ensureBlock()
+		tag.Block.pushFront(p.parseBuffered())
+		goto readmore
+
 	}
 
 	return tag

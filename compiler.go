@@ -542,7 +542,7 @@ func (c *Compiler) visitRawInterpolation(value string) string {
 	value = strings.Replace(value, "$", "__DOLLAR__", -1)
 	expr, err := gp.ParseExpr(value)
 	if err != nil {
-		panic("Unable to parse expression.")
+		panic(fmt.Sprintf("Unable to parse expression: %s", value))
 	}
 	value = strings.Replace(c.visitExpression(expr), "__DOLLAR__", "$", -1)
 	return value
