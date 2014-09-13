@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -469,7 +470,16 @@ func (c *Compiler) visitTag(tag *parser.Tag) {
 	c.indent(0, true)
 	c.write("<" + tag.Name)
 
-	for name, value := range attribs {
+	var attrNames []string
+	for k := range attribs {
+		attrNames = append(attrNames, k)
+	}
+
+	sort.Strings(attrNames)
+
+	for attrIdx := range attrNames {
+		name := attrNames[attrIdx]
+		value := attribs[name]
 		if len(value.condition) > 0 {
 			c.write(`{{if ` + value.condition + `}}`)
 		}

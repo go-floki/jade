@@ -10,6 +10,8 @@ import (
 	"strings"
 )
 
+const DebugParser = false
+
 type Parser struct {
 	scanner      *scanner
 	filename     string
@@ -139,12 +141,30 @@ func (p *Parser) parseRelativeFile(filename string) *Parser {
 
 func tokenKind2Str(token rune) string {
 	switch token {
+	case tokEOF:
+		return "tokEOF"
 	case tokDoctype:
 		return "tokDoctype"
 	case tokComment:
 		return "tokComment"
+	case tokIndent:
+		return "tokIndent"
+	case tokOutdent:
+		return "tokOutdent"
+	case tokBlank:
+		return "tokBlank"
+	case tokId:
+		return "tokId"
+	case tokClassName:
+		return "tokClassName"
+	case tokTag:
+		return "tokTag"
 	case tokText:
 		return "tokText"
+	case tokAttribute:
+		return "tokAttribute"
+	case tokAttributeList:
+		return "tokAttributeList"
 	case tokIf:
 		return "tokIf"
 	case tokElse:
@@ -153,30 +173,32 @@ func tokenKind2Str(token rune) string {
 		return "tokUnless"
 	case tokEach:
 		return "tokEach"
-	case tokImport:
-		return "tokImport"
-	case tokTag:
-		return "tokTag"
-	case tokBuffered:
-		return "tokBuffered"
 	case tokAssignment:
 		return "tokAssignment"
+	case tokImport:
+		return "tokImport"
 	case tokNamedBlock:
 		return "tokNamedBlock"
 	case tokExtends:
 		return "tokExtends"
-	case tokIndent:
-		return "tokIndent"
 	case tokMixin:
 		return "tokMixin"
 	case tokMixinCall:
 		return "tokMixinCall"
+	case tokBuffered:
+		return "tokBuffered"
+	case tokSemicolon:
+		return "tokSemicolon"
+	case tokNewLine:
+		return "tokNewLine"
 	}
-	return "unknown"
+	return fmt.Sprintf("unknown(%d)", token)
 }
 
 func (p *Parser) parse() Node {
-	//fmt.Println("token:", tokenKind2Str(p.currenttoken.Kind))
+	if DebugParser {
+		fmt.Println("parsed:", tokenKind2Str(p.currenttoken.Kind), p.currenttoken.Value)
+	}
 
 	switch p.currenttoken.Kind {
 	case tokDoctype:
@@ -195,6 +217,10 @@ func (p *Parser) parse() Node {
 		return p.parseImport()
 	case tokTag:
 		return p.parseTag()
+	case tokClassName:
+		return p.parseTaglessClass()
+	case tokId:
+		return p.parseTaglessId()
 	case tokBuffered:
 		return p.parseBuffered()
 	case tokAssignment:
@@ -209,14 +235,31 @@ func (p *Parser) parse() Node {
 		return p.parseMixin()
 	case tokMixinCall:
 		return p.parseMixinCall()
+	case tokNewLine:
+		p.advance()
+		return p.parse()
+	case tokOutdent:
+		//p.advance()
+		block := newBlock()
+		block.SourcePosition = p.pos()
+		return block
 	}
 
-	panic(fmt.Sprintf("Unexpected token: %d", p.currenttoken.Kind))
+	panic(fmt.Sprintf("Unexpected token: %s", tokenKind2Str(p.currenttoken.Kind)))
 }
 
 func (p *Parser) expect(typ rune) *token {
 	if p.currenttoken.Kind != typ {
-		panic("Unexpected token!")
+		panic(fmt.Sprintf("Unexpected token: %s, expected: %s", tokenKind2Str(p.currenttoken.Kind), tokenKind2Str(typ)))
+	}
+	curtok := p.currenttoken
+	p.advance()
+	return curtok
+}
+
+func (p *Parser) expectOneOf(typ rune, typ2 rune) *token {
+	if p.currenttoken.Kind != typ && p.currenttoken.Kind != typ2 {
+		panic(fmt.Sprintf("Unexpected token: %s, expected: %s or %s", tokenKind2Str(p.currenttoken.Kind), tokenKind2Str(typ), tokenKind2Str(typ2)))
 	}
 	curtok := p.currenttoken
 	p.advance()
@@ -240,11 +283,14 @@ func (p *Parser) parseExtends() *Block {
 }
 
 func (p *Parser) parseBlock(parent Node) *Block {
-	p.expect(tokIndent)
+	p.expectOneOf(tokIndent, tokSemicolon)
 	block := newBlock()
 	block.SourcePosition = p.pos()
 
 	for {
+		if DebugParser {
+			fmt.Println("  block tag:", tokenKind2Str(p.currenttoken.Kind))
+		}
 		if p.currenttoken == nil || p.currenttoken.Kind == tokEOF || p.currenttoken.Kind == tokOutdent {
 			break
 		}
@@ -254,19 +300,23 @@ func (p *Parser) parseBlock(parent Node) *Block {
 			continue
 		}
 
-		if p.currenttoken.Kind == tokId ||
-			p.currenttoken.Kind == tokClassName ||
-			p.currenttoken.Kind == tokAttribute {
+		/*
+			if p.currenttoken.Kind == tokId ||
+				p.currenttoken.Kind == tokClassName ||
+				p.currenttoken.Kind == tokAttribute {
+		*/
+
+		if p.currenttoken.Kind == tokAttribute {
 
 			if tag, ok := parent.(*Tag); ok {
 				attr := p.expect(p.currenttoken.Kind)
 				cond := attr.Data["Condition"]
 
 				switch attr.Kind {
-				case tokId:
+				/*case tokId:
 					tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "id", attr.Value, true, cond})
 				case tokClassName:
-					tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "class", attr.Value, true, cond})
+					tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "class", attr.Value, true, cond})*/
 				case tokAttribute:
 					tag.Attributes = append(tag.Attributes, Attribute{p.pos(), attr.Value, attr.Data["Content"], attr.Data["Mode"] == "raw", cond})
 				}
@@ -280,7 +330,7 @@ func (p *Parser) parseBlock(parent Node) *Block {
 		block.push(p.parse())
 	}
 
-	p.expect(tokOutdent)
+	p.expectOneOf(tokOutdent, tokEOF)
 
 	return block
 }
@@ -303,7 +353,7 @@ readmore:
 		} else if p.currenttoken.Kind == tokIndent {
 			cnd.Negative = p.parseBlock(cnd)
 		} else {
-			panic("Unexpected token!")
+			panic(fmt.Sprintf("Unexpected token: %s", tokenKind2Str(p.currenttoken.Kind)))
 		}
 		goto readmore
 	}
@@ -421,6 +471,29 @@ func (p *Parser) parseTag() *Tag {
 	tok := p.expect(tokTag)
 	tag := newTag(tok.Value)
 	tag.SourcePosition = p.pos()
+	p.parseTagReal(tag)
+	return tag
+}
+
+func (p *Parser) parseTaglessClass() *Tag {
+	tok := p.expect(tokClassName)
+	tag := newTag("div")
+	tag.SourcePosition = p.pos()
+	tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "class", tok.Value, true, ""})
+	p.parseTagReal(tag)
+	return tag
+}
+
+func (p *Parser) parseTaglessId() *Tag {
+	tok := p.expect(tokId)
+	tag := newTag("div")
+	tag.SourcePosition = p.pos()
+	tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "id", tok.Value, true, ""})
+	p.parseTagReal(tag)
+	return tag
+}
+
+func (p *Parser) parseTagReal(tag *Tag) *Tag {
 
 	ensureBlock := func() {
 		if tag.Block == nil {
@@ -429,6 +502,11 @@ func (p *Parser) parseTag() *Tag {
 	}
 
 readmore:
+
+	if DebugParser {
+		fmt.Println(" > tag token:", tokenKind2Str(p.currenttoken.Kind))
+	}
+
 	switch p.currenttoken.Kind {
 	case tokIndent:
 		if tag.IsRawText() {
@@ -443,6 +521,23 @@ readmore:
 				tag.Block.push(c)
 			}
 		}
+
+	case tokSemicolon:
+		block := newBlock()
+		block.SourcePosition = p.pos()
+
+		if tag.Block == nil {
+			tag.Block = block
+		} else {
+			for _, c := range block.Children {
+				tag.Block.push(c)
+			}
+		}
+
+		p.advance()
+		innerTag := p.parseTag()
+		block.push(innerTag)
+
 	case tokId:
 		id := p.expect(tokId)
 		if len(id.Data["Condition"]) > 0 {
@@ -450,6 +545,7 @@ readmore:
 		}
 		tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "id", id.Value, true, ""})
 		goto readmore
+
 	case tokClassName:
 		cls := p.expect(tokClassName)
 		if len(cls.Data["Condition"]) > 0 {
@@ -457,6 +553,7 @@ readmore:
 		}
 		tag.Attributes = append(tag.Attributes, Attribute{p.pos(), "class", cls.Value, true, ""})
 		goto readmore
+
 	case tokAttribute:
 		attr := p.expect(tokAttribute)
 		if len(attr.Data["Condition"]) > 0 {
@@ -464,6 +561,7 @@ readmore:
 		}
 		tag.Attributes = append(tag.Attributes, Attribute{p.pos(), attr.Value, attr.Data["Content"], attr.Data["Mode"] == "raw", ""})
 		goto readmore
+
 	case tokAttributeList:
 		attr := p.expect(tokAttributeList)
 		for i := range attr.Children {

@@ -23,12 +23,31 @@ func Test_Nesting(t *testing.T) {
 	res, err := run(`html
 						head
 							title
-						body`, nil)
+						body
+							div: p
+							.anotherDiv: p`, nil)
 
 	if err != nil {
 		t.Fatal(err.Error())
 	} else {
-		expect(res, `<html><head><title></title></head><body></body></html>`, t)
+		expect(res, `<html><head><title></title></head><body><div><p></p></div><div class="anotherDiv"><p></p></div></body></html>`, t)
+	}
+
+	res, err = run(`body
+					    span#popup
+						.wrap.container
+							#top.header`, nil)
+
+	if err != nil {
+		t.Fatal(err.Error())
+	} else {
+		expect(res, `<body><span id="popup"></span><div class="wrap container"><div class="header" id="top"></div></div></body>`, t)
+	}
+	_, err = run(`
+	.cls
+    `, nil)
+	if err != nil {
+		t.Fatal(err.Error())
 	}
 }
 
@@ -75,15 +94,15 @@ func Test_Mixin_MultiArguments(t *testing.T) {
 }
 
 func Test_ClassName(t *testing.T) {
-	res, err := run(`div.test
-						p.test1.test2
+	res, err := run(`.test
+						p.test1.test-2
 							[class=$]
 							.test3`, "test4")
 
 	if err != nil {
 		t.Fatal(err.Error())
 	} else {
-		expect(res, `<div class="test"><p class="test1 test2 test4 test3"></p></div>`, t)
+		expect(res, `<div class="test"><p class="test1 test-2 test4"><div class="test3"></div></p></div>`, t)
 	}
 }
 

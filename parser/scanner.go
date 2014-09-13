@@ -32,6 +32,8 @@ const (
 	tokMixin
 	tokMixinCall
 	tokBuffered
+	tokSemicolon
+	tokNewLine
 )
 
 const (
@@ -102,6 +104,7 @@ func (s *scanner) Next() *token {
 		}
 
 		return &token{tokEOF, "", nil, nil}
+
 	case scnNewLine:
 		s.state = scnLine
 
@@ -109,7 +112,8 @@ func (s *scanner) Next() *token {
 			return tok
 		}
 
-		return s.Next()
+		return &token{tokNewLine, "", nil, nil} //s.Next()
+
 	case scnLine:
 		if tok := s.scanMixin(); tok != nil {
 			return tok
@@ -156,6 +160,10 @@ func (s *scanner) Next() *token {
 		}
 
 		if tok := s.scanId(); tok != nil {
+			return tok
+		}
+
+		if tok := s.scanSemicolon(); tok != nil {
 			return tok
 		}
 
@@ -248,8 +256,28 @@ func (s *scanner) scanIndent() *token {
 	newIndent := rgxIndent.FindString(s.buffer)
 
 	if len(newIndent) != 0 && head == nil {
-		s.indentStack.PushBack(regexp.MustCompile(regexp.QuoteMeta(newIndent)))
-		s.consume(len(newIndent))
+		originalLen := len(newIndent)
+
+		expr := ""
+		spaceCnt := 0
+		for i := range newIndent {
+			c := newIndent[i]
+
+			if c == ' ' {
+				spaceCnt++
+				if spaceCnt == 4 {
+					expr += "(\\t|[ ]{4})"
+					spaceCnt = 0
+				}
+			}
+			if c == '\t' {
+				expr += "(\\t|[ ]{4})"
+			}
+		}
+
+		s.indentStack.PushBack(regexp.MustCompile(expr))
+		s.consume(originalLen)
+
 		return &token{tokIndent, newIndent, nil, nil}
 	}
 
@@ -487,7 +515,7 @@ func (s *scanner) scanBlock() *token {
 	return nil
 }
 
-var rgxTag = regexp.MustCompile(`^(\w[-:\w]*)`)
+var rgxTag = regexp.MustCompile(`^(\w[-\w]*)`)
 
 func (s *scanner) scanTag() *token {
 	if sm := rgxTag.FindStringSubmatch(s.buffer); len(sm) != 0 {
@@ -532,6 +560,15 @@ func (s *scanner) scanText() *token {
 		}
 
 		return &token{tokText, sm[2], map[string]string{"Mode": mode}, nil}
+	}
+
+	return nil
+}
+
+func (s *scanner) scanSemicolon() *token {
+	if len(s.buffer) >= 2 && s.buffer[0] == ':' && s.buffer[1] == ' ' {
+		s.consume(2)
+		return &token{tokSemicolon, "", nil, nil}
 	}
 
 	return nil
