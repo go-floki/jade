@@ -8,16 +8,16 @@ import (
 )
 
 var FuncMap = template.FuncMap{
-	"__amber_add":   runtime_add,
-	"__amber_sub":   runtime_sub,
-	"__amber_mul":   runtime_mul,
-	"__amber_quo":   runtime_quo,
-	"__amber_rem":   runtime_rem,
-	"__amber_minus": runtime_minus,
-	"__amber_plus":  runtime_plus,
-	"__amber_eql":   runtime_eql,
-	"__amber_gtr":   runtime_gtr,
-	"__amber_lss":   runtime_lss,
+	"__jade_add":   runtime_add,
+	"__jade_sub":   runtime_sub,
+	"__jade_mul":   runtime_mul,
+	"__jade_quo":   runtime_quo,
+	"__jade_rem":   runtime_rem,
+	"__jade_minus": runtime_minus,
+	"__jade_plus":  runtime_plus,
+	"__jade_eql":   runtime_eql,
+	"__jade_gtr":   runtime_gtr,
+	"__jade_lss":   runtime_lss,
 
 	"json":          runtime_json,
 	"unescaped":     runtime_unescaped,

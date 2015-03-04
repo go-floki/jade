@@ -2,12 +2,65 @@ package jade
 
 import (
 	"bytes"
-	//"fmt"
+	"fmt"
 	//"html/template"
 	//"os"
 	"strings"
 	"testing"
+    "io/ioutil"
+    "flag"
 )
+
+var (
+    selCase = flag.String("case", "", "Specify test case name to run")
+)
+
+func init() {
+    flag.Parse()
+}
+
+func Test_Cases(t *testing.T) {
+    casesDir := "./test/cases"
+
+    files, _ := ioutil.ReadDir(casesDir)
+    for _, f := range files {
+        name := f.Name()
+        if strings.Index(name, ".jade") != -1 {
+            if *selCase != "" && strings.Index(name, *selCase) == -1 {
+                continue
+            }
+
+            fmt.Println("--- TEST:", name)
+
+            jadeFile := casesDir + "/" + name
+
+            contents, err := ioutil.ReadFile(jadeFile)
+            if err != nil {
+                t.Fatal(err)
+            }
+
+            htmlName := strings.Replace(name, ".jade", ".html", 1)
+            expected, err := ioutil.ReadFile(casesDir + "/" + htmlName)
+            if err != nil {
+                t.Fatal(err)
+            }
+
+            res, compiledTpl, err := runPretty(jadeFile, string(contents), nil)
+            if err != nil {
+                t.Fatal(err)
+            }
+
+            expectedStr := strings.TrimSpace(string(expected))
+
+            res = strings.TrimSpace(res)
+
+            // replace TAB characters with 4 SPACE characters
+            res = strings.Replace(res, "\t", "    ", -1)
+
+            expectWithSource(res, expectedStr, compiledTpl, t)
+        }
+    }
+}
 
 func Test_Doctype(t *testing.T) {
 	res, err := run(`!!! 5`, nil)
@@ -450,14 +503,52 @@ func expect2(cur, expected string, expected2 string, t *testing.T) {
 	}
 }
 
+
+func expectWithSource(cur, expected, source string, t *testing.T) {
+    if cur != expected {
+        t.Fatalf("Expected {%s} got {%s}. Compiled template: {%s}", expected, cur, source)
+    }
+}
+
 func run(tpl string, data interface{}) (string, error) {
-	t, err := Compile(tpl, Options{false, false})
+	t, err := Compile(tpl, Options{
+        PrettyPrint: false,
+        LineNumbers: false,
+    })
+
 	if err != nil {
 		return "", err
 	}
+
 	var buf bytes.Buffer
 	if err = t.Execute(&buf, data); err != nil {
 		return "", err
 	}
+
 	return strings.TrimSpace(buf.String()), nil
+}
+
+func runPretty(file string, tpl string, data interface{}) (string, string, error) {
+    cmp := New()
+    cmp.filename = file
+    cmp.Parse(tpl)
+
+    cmp.Options = Options{
+        PrettyPrint: true,
+        LineNumbers: false,
+    }
+
+    t, err := cmp.Compile()
+    if err != nil {
+        return "", "", err
+    }
+
+    compiledTpl, _ := cmp.CompileString()
+
+    var buf bytes.Buffer
+    if err = t.Execute(&buf, data); err != nil {
+        return "", compiledTpl, err
+    }
+
+    return strings.TrimSpace(buf.String()), compiledTpl, nil
 }

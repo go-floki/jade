@@ -1,0 +1,27 @@
+a(href="/contact") contact
+a(href="/save").button save
+a(foo, bar, baz)
+select
+    option(value='foo', selected) Foo
+    option(selected, value='bar') Bar
+a(foo="class:")
+input(pattern='\\S+')
+
+a(href='/contact') contact
+a(href='/save').button save
+a(tab="1", foo bar baz)
+a(foo='foo, bar, baz', bar="1")
+
+button(onclick="foobar()") OK
+
+div(name="Test")
+    p
+        span(style="text-align: center")
+
+$foo = "1"
+span(title=$foo)
+button(onclick="foo(" + $foo + ")") Label
+
+//- escape attributes
+$bar = "\" onclick=\"foo()\""
+button(some-attr=$bar) Label

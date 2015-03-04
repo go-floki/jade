@@ -44,6 +44,10 @@ func FileParser(filename string) (*Parser, error) {
 	return parser, nil
 }
 
+func (p *Parser) FileName(fileName string) {
+    p.filename = fileName
+}
+
 func (p *Parser) Parse() *Block {
 	if p.result != nil {
 		return p.result
@@ -62,7 +66,9 @@ func (p *Parser) Parse() *Block {
 			} else {
 				trace := make([]byte, 1024)
 				_ = runtime.Stack(trace, true)
-				panic(fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d\n%s", r, pos.LineNum, pos.ColNum, pos.TokenLength, trace))
+                errMessage := fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d\n%s", r, pos.LineNum, pos.ColNum, pos.TokenLength, trace)
+                fmt.Println(errMessage)
+				panic(errMessage)
 			}
 		}
 	}()
@@ -276,6 +282,11 @@ func (p *Parser) parseExtends() *Block {
 	}
 
 	tok := p.expect(tokExtends)
+
+    if DebugParser {
+        fmt.Println("Parsing:", tok.Value)
+    }
+
 	parser := p.parseRelativeFile(tok.Value)
 	parser.Parse()
 	p.parent = parser
@@ -535,8 +546,19 @@ readmore:
 		}
 
 		p.advance()
-		innerTag := p.parseTag()
-		block.push(innerTag)
+
+        switch p.currenttoken.Kind {
+            case tokId:
+                innerTag := p.parseTaglessId()
+                block.push(innerTag)
+            case tokClassName:
+                innerTag := p.parseTaglessClass()
+                block.push(innerTag)
+            case tokTag:
+                innerTag := p.parseTag()
+                block.push(innerTag)
+
+        }
 
 	case tokId:
 		id := p.expect(tokId)

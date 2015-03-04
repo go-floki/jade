@@ -36,9 +36,9 @@ var builtinFunctions = [...]string{
 // Compiler is the main interface of Amber Template Engine.
 // In order to use an Amber template, it is required to create a Compiler and
 // compile an Amber source to native Go template.
-//	compiler := amber.New()
+//	compiler := jade.New()
 // 	// Parse the input file
-//	err := compiler.ParseFile("./input.amber")
+//	err := compiler.ParseFile("./input.jade")
 //	if err == nil {
 //		// Compile input file to Go template
 //		tpl, err := compiler.Compile()
@@ -94,7 +94,7 @@ type DirOptions struct {
 var DefaultOptions = Options{true, false}
 var DefaultDirOptions = DirOptions{".jade", true}
 
-// Parses and compiles the supplied amber template string. Returns corresponding Go Template (html/templates) instance.
+// Parses and compiles the supplied jade template string. Returns corresponding Go Template (html/templates) instance.
 // Necessary runtime functions will be injected and the template will be ready to be executed.
 func Compile(input string, options Options) (*template.Template, error) {
 	comp := New()
@@ -124,7 +124,7 @@ func CompileFile(filename string, options Options) (*template.Template, error) {
 
 // Parses and compiles the contents of a supplied directory path, with options.
 // Returns a map of a template identifier (key) to a Go Template instance.
-// Ex: if the dirname="templates/" had a file "index.amber" the key would be "index"
+// Ex: if the dirname="templates/" had a file "index.jade" the key would be "index"
 // If option for recursive is True, this parses every file of relevant extension
 // in all subdirectories. The key then is the path e.g: "layouts/layout"
 func CompileDir(dirname string, dopt DirOptions, opt Options) (map[string]*template.Template, error) {
@@ -141,7 +141,7 @@ func CompileDir(dirname string, dopt DirOptions, opt Options) (map[string]*templ
 
 	compiled := make(map[string]*template.Template)
 	for _, file := range files {
-		// filename is for example "index.amber"
+		// filename is for example "index.jade"
 		filename := file.Name()
 		fileext := filepath.Ext(filename)
 
@@ -174,7 +174,7 @@ func CompileDir(dirname string, dopt DirOptions, opt Options) (map[string]*templ
 	return compiled, nil
 }
 
-// Parse given raw amber template string.
+// Parse given raw jade template string.
 func (c *Compiler) Parse(input string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -183,6 +183,7 @@ func (c *Compiler) Parse(input string) (err error) {
 	}()
 
 	parser, err := parser.StringParser(input)
+    parser.FileName(c.filename)
 
 	if err != nil {
 		return
@@ -192,7 +193,7 @@ func (c *Compiler) Parse(input string) (err error) {
 	return
 }
 
-// Parse the amber template file in given path
+// Parse the jade template file in given path
 func (c *Compiler) ParseFile(filename string) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -211,7 +212,7 @@ func (c *Compiler) ParseFile(filename string) (err error) {
 	return
 }
 
-// Compile amber and create a Go Template (html/templates) instance.
+// Compile jade and create a Go Template (html/templates) instance.
 // Necessary runtime functions will be injected and the template will be ready to be executed.
 func (c *Compiler) Compile() (*template.Template, error) {
 	return c.CompileWithName(filepath.Base(c.filename))
@@ -239,7 +240,7 @@ func (c *Compiler) CompileWithTemplate(t *template.Template) (*template.Template
 	return tpl, nil
 }
 
-// Compile amber and write the Go Template source into given io.Writer instance
+// Compile jade and write the Go Template source into given io.Writer instance
 // You would not be using this unless debugging / checking the output. Please use Compile
 // method to obtain a template instance directly.
 func (c *Compiler) CompileWriter(out io.Writer) (err error) {
@@ -340,7 +341,7 @@ func (c *Compiler) indent(offset int, newline bool) {
 
 func (c *Compiler) tempvar() string {
 	c.tempvarIndex++
-	return "$__amber_" + strconv.Itoa(c.tempvarIndex)
+	return "$__jade_" + strconv.Itoa(c.tempvarIndex)
 }
 
 func (c *Compiler) escape(input string) string {
@@ -551,8 +552,20 @@ func (c *Compiler) visitJSInterpolation(value string) string {
 func (c *Compiler) visitRawInterpolation(value string) string {
 	value = strings.Replace(value, "$", "__DOLLAR__", -1)
 	expr, err := gp.ParseExpr(value)
+
+    if err != nil {
+        // dumb hack to parse single-quoted strings
+        valueLen := len(value)
+        bValue := []byte(value)
+        if bValue[0] == '\'' && bValue[valueLen - 1] == '\'' {
+            bValue[0] = '"'
+            bValue[valueLen - 1] = '"'
+            expr, err = gp.ParseExpr(string(bValue))
+        }
+    }
+
 	if err != nil {
-		panic(fmt.Sprintf("Unable to parse expression: %s", value))
+        panic(fmt.Sprintf("Unable to parse expression: %s", value))
 	}
 	value = strings.Replace(c.visitExpression(expr), "__DOLLAR__", "$", -1)
 	return value
@@ -588,33 +601,33 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 
 				switch be.Op {
 				case gt.ADD:
-					c.write("__amber_add ")
+					c.write("__jade_add ")
 				case gt.SUB:
-					c.write("__amber_sub ")
+					c.write("__jade_sub ")
 				case gt.MUL:
-					c.write("__amber_mul ")
+					c.write("__jade_mul ")
 				case gt.QUO:
-					c.write("__amber_quo ")
+					c.write("__jade_quo ")
 				case gt.REM:
-					c.write("__amber_rem ")
+					c.write("__jade_rem ")
 				case gt.LAND:
 					c.write("and ")
 				case gt.LOR:
 					c.write("or ")
 				case gt.EQL:
-					c.write("__amber_eql ")
+					c.write("__jade_eql ")
 				case gt.NEQ:
-					c.write("__amber_eql ")
+					c.write("__jade_eql ")
 					negate = true
 				case gt.LSS:
-					c.write("__amber_lss ")
+					c.write("__jade_lss ")
 				case gt.GTR:
-					c.write("__amber_gtr ")
+					c.write("__jade_gtr ")
 				case gt.LEQ:
-					c.write("__amber_gtr ")
+					c.write("__jade_gtr ")
 					negate = true
 				case gt.GEQ:
-					c.write("__amber_lss ")
+					c.write("__jade_lss ")
 					negate = true
 				default:
 					panic("Unexpected operator!")
@@ -641,9 +654,9 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 
 				switch ue.Op {
 				case gt.SUB:
-					c.write("__amber_minus ")
+					c.write("__jade_minus ")
 				case gt.ADD:
-					c.write("__amber_plus ")
+					c.write("__jade_plus ")
 				case gt.NOT:
 					c.write("not ")
 				default:

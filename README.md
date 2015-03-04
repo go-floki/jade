@@ -2,9 +2,40 @@
 --
     import "github.com/go-floki/jade"
 
-Jade is an elegant templating engine. This is its implementation for 
-Go Programming Language. Code is based on the Amber project. This 
-project is a part of the Floki Web application framework.
+Jade is an elegant templating engine. This is Jade implementation for
+Go Programming Language. Most features are supported, except for javascript expressions.
+Code is based on the Amber project. This project is a part of the Floki Web application
+framework but can be easily used in a separate application.
+
+### Example usage
+
+./templates/index.jade
+
+```jade
+html
+    body
+        p Variable equals #{var}
+```
+
+test.go
+
+```go
+    import "github.com/go-floki/jade"
+
+    // compile templates
+    templates, err := jade.CompileDir("./templates", jade.DefaultDirOptions, jade.Options{})
+    if err != nil {
+        panic(err)
+    }
+
+    // then render some template
+    tpl := templates["index"]
+    tpl.Execute(writer, map[string]interface{}{
+        "var": "foo"
+    })
+```
+
+Look in *test* folder for sample templates.
 
 ### Tags
 
@@ -280,13 +311,6 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-## Usage
-
-```go
-var DefaultOptions = Options{true, false}
-var DefaultDirOptions = DirOptions{".jade", true}
-```
-
 #### func  Compile
 
 ```go
@@ -405,7 +429,7 @@ type Options struct {
 	// Setting if pretty printing is enabled.
 	// Pretty printing ensures that the output html is properly indented and in human readable form.
 	// If disabled, produced HTML is compact. This might be more suitable in production environments.
-	// Defaukt: true
+	// Default: true
 	PrettyPrint bool
 	// Setting if line number emiting is enabled
 	// In this form, Jade emits line number comments in the output template. It is usable in debugging environments.
@@ -420,6 +444,7 @@ type Options struct {
 // Used to provide options to directory compilation
 type DirOptions struct {
 	// File extension to match for compilation
+	// Default: ".jade"
 	Ext string
 	// Whether or not to walk subdirectories
 	Recursive bool

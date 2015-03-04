@@ -428,7 +428,7 @@ func (s *scanner) scanAttribute() *token {
 					for {
 						c := s.buffer[i]
 
-						if c == '"' {
+						if c == '"' || c == '\'' {
 							insideQuotes = !insideQuotes
 
 						} else {
@@ -447,7 +447,13 @@ func (s *scanner) scanAttribute() *token {
 					}
 
 					if isExpression {
-						attributeList = append(attributeList, &token{tokAttribute, sm[1], map[string]string{"Content": s.buffer[:i], "Mode": "expression", "Condition": ""}, nil})
+                        if sm[2] == "=" {
+                            attributeList = append(attributeList, &token{tokAttribute, sm[1], map[string]string{"Content": s.buffer[:i], "Mode": "expression", "Condition": ""}, nil})
+                        } else {
+                            attributeList = append(attributeList, &token{tokAttribute, sm[1], map[string]string{"Content": "", "Mode": "raw", "Condition": ""}, nil})
+                            i = 0
+                        }
+
 					} else {
 						var value string
 
