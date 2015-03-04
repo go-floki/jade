@@ -37,6 +37,10 @@ test.go
 
 Look in *test* folder for sample templates.
 
+### Middlewares
+
+- Martini middleware is available: [martini-jade](https://github.com/frogprog/martini-jade)
+
 ### Tags
 
 A tag is simply a word:
