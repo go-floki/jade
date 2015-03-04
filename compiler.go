@@ -81,6 +81,9 @@ type Options struct {
 	// In this form, Amber emits line number comments in the output template. It is usable in debugging environments.
 	// Default: false
 	LineNumbers bool
+
+    // Custom functions
+    Funcs template.FuncMap
 }
 
 // Used to provide options to directory compilation
@@ -91,7 +94,7 @@ type DirOptions struct {
 	Recursive bool
 }
 
-var DefaultOptions = Options{true, false}
+var DefaultOptions = Options{true, false, nil}
 var DefaultDirOptions = DirOptions{".jade", true}
 
 // Parses and compiles the supplied jade template string. Returns corresponding Go Template (html/templates) instance.
@@ -226,13 +229,11 @@ func (c *Compiler) CompileWithName(name string) (*template.Template, error) {
 // Same as Compile but allows to specify a template
 func (c *Compiler) CompileWithTemplate(t *template.Template) (*template.Template, error) {
 	data, err := c.CompileString()
-
 	if err != nil {
 		return nil, err
 	}
 
-	tpl, err := t.Funcs(FuncMap).Parse(data)
-
+	tpl, err := t.Funcs(FuncMap).Funcs(c.Options.Funcs).Parse(data)
 	if err != nil {
 		return nil, err
 	}
@@ -273,24 +274,22 @@ func (c *Compiler) CompileString() (string, error) {
 
 	result := buf.String()
 
-	//fmt.Println("compiled to:", result)
-
 	return result, nil
 }
 
 func (c *Compiler) visit(node parser.Node) {
 	defer func() {
 		if r := recover(); r != nil {
-			if rs, ok := r.(string); ok && rs[:len("Amber Error")] == "Amber Error" {
+			if rs, ok := r.(string); ok && rs[:len("Jade Error")] == "Jade Error" {
 				panic(r)
 			}
 
 			pos := node.Pos()
 
 			if len(pos.Filename) > 0 {
-				panic(fmt.Sprintf("Amber Error in <%s>: %v - Line: %d, Column: %d, Length: %d", pos.Filename, r, pos.LineNum, pos.ColNum, pos.TokenLength))
+				panic(fmt.Sprintf("Jade Error in <%s>: %v - Line: %d, Column: %d, Length: %d", pos.Filename, r, pos.LineNum, pos.ColNum, pos.TokenLength))
 			} else {
-				panic(fmt.Sprintf("Amber Error: %v - Line: %d, Column: %d, Length: %d", r, pos.LineNum, pos.ColNum, pos.TokenLength))
+				panic(fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d", r, pos.LineNum, pos.ColNum, pos.TokenLength))
 			}
 		}
 	}()
@@ -567,8 +566,19 @@ func (c *Compiler) visitRawInterpolation(value string) string {
 	if err != nil {
         panic(fmt.Sprintf("Unable to parse expression: %s", value))
 	}
+
 	value = strings.Replace(c.visitExpression(expr), "__DOLLAR__", "$", -1)
 	return value
+}
+
+func (c *Compiler) hasFunctionWithName(name string) bool {
+    if _, inCustom := c.Options.Funcs[name]; inCustom {
+        return true
+    } else if _, inRuntime := FuncMap[name]; inRuntime {
+        return true
+    }
+
+    return false
 }
 
 func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
@@ -684,7 +694,11 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 				case "nil":
 					stack.PushFront(rname)
 				default:
-					stack.PushFront(`.` + rname)
+                    if c.hasFunctionWithName(rname) {
+                        stack.PushFront(rname)
+                    } else {
+                        stack.PushFront(`.` + rname)
+                    }
 				}
 			}
 		case *ast.SelectorExpr:
@@ -710,7 +724,7 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 			builtin := false
 
 			if ident, ok := ce.Fun.(*ast.Ident); ok {
-				for _, fname := range builtinFunctions {
+                for _, fname := range builtinFunctions {
 					if fname == ident.Name {
 						builtin = true
 						break
@@ -719,10 +733,12 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 			}
 
 			if builtin {
+                // @todo check what's going on here..
 				stack.PushFront(ce.Fun.(*ast.Ident).Name)
 				c.write("{{" + name + " := " + pop())
+
 			} else {
-				if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
+                if se, ok := ce.Fun.(*ast.SelectorExpr); ok {
 					exec(se.X)
 					x := pop()
 
@@ -730,11 +746,11 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 						x = ""
 					}
 
-					c.write("{{" + name + " := " + x + "." + se.Sel.Name + " ")
+                    c.write("{{" + name + " := " + x + "." + se.Sel.Name + " ")
 
 				} else {
 					exec(ce.Fun)
-					c.write("{{" + name + " := call " + pop())
+					c.write("{{" + name + " := " + pop())
 				}
 
 			}

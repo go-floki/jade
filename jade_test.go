@@ -9,15 +9,26 @@ import (
 	"testing"
     "io/ioutil"
     "flag"
+    "html/template"
 )
 
 var (
     selCase = flag.String("case", "", "Specify test case name to run")
+
+    customFuncs = template.FuncMap{
+        "foo": func(x string) string {
+            return x + "bar"
+        },
+        "bar": func() string {
+            return "bar"
+        },
+    }
 )
 
 func init() {
     flag.Parse()
 }
+
 
 func Test_Cases(t *testing.T) {
     casesDir := "./test/cases"
@@ -536,6 +547,7 @@ func runPretty(file string, tpl string, data interface{}) (string, string, error
     cmp.Options = Options{
         PrettyPrint: true,
         LineNumbers: false,
+        Funcs: customFuncs,
     }
 
     t, err := cmp.Compile()
@@ -552,3 +564,4 @@ func runPretty(file string, tpl string, data interface{}) (string, string, error
 
     return strings.TrimSpace(buf.String()), compiledTpl, nil
 }
+
