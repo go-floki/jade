@@ -31,7 +31,7 @@ test.go
     // then render some template
     tpl := templates["index"]
     tpl.Execute(writer, map[string]interface{}{
-        "var": "foo"
+        "var": "foo",
     })
 ```
 
