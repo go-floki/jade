@@ -605,8 +605,16 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 				exec(be.Y)
 				exec(be.X)
 
-				negate := false
-				name := c.tempvar()
+                name := c.tempvar()
+
+                switch be.Op {
+                    case gt.OR:
+                    c.write(`{{` + name + ` := ` + pop() + ` | ` + pop() + `}}`)
+                    stack.PushFront(name)
+                    return
+                }
+
+                negate := false
 				c.write(`{{` + name + ` := `)
 
 				switch be.Op {
@@ -640,7 +648,7 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 					c.write("__jade_lss ")
 					negate = true
 				default:
-					panic("Unexpected operator!")
+					panic("Unexpected operator: '" + be.Op.String() + "'")
 				}
 
 				c.write(pop() + ` ` + pop() + `}}`)
@@ -670,7 +678,7 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 				case gt.NOT:
 					c.write("not ")
 				default:
-					panic("Unexpected operator!")
+					panic("Unexpected operator: '" + ue.Op.String() + "'")
 				}
 
 				c.write(pop() + `}}`)
@@ -713,6 +721,7 @@ func (c *Compiler) visitExpression(outerexpr ast.Expr) string {
 			name := c.tempvar()
 			c.write(`{{` + name + ` := ` + x + `.` + se.Sel.Name + `}}`)
 			stack.PushFront(name)
+
 		case *ast.CallExpr:
 			ce := expr.(*ast.CallExpr)
 

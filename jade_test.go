@@ -58,6 +58,7 @@ func Test_Cases(t *testing.T) {
 
             res, compiledTpl, err := runPretty(jadeFile, string(contents), nil)
             if err != nil {
+                t.Log("Compiled to:", compiledTpl)
                 t.Fatal(err)
             }
 
@@ -552,7 +553,8 @@ func runPretty(file string, tpl string, data interface{}) (string, string, error
 
     t, err := cmp.Compile()
     if err != nil {
-        return "", "", err
+        compiledTpl, _ := cmp.CompileString()
+        return "", compiledTpl, err
     }
 
     compiledTpl, _ := cmp.CompileString()

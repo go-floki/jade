@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"reflect"
+    "strings"
 )
 
 var FuncMap = template.FuncMap{
@@ -23,6 +24,9 @@ var FuncMap = template.FuncMap{
 	"unescaped":     runtime_unescaped,
 	"safeAttribute": runtime_safeHTMLAttribute,
 	"safeJS":        runtime_safeJS,
+
+	"upper":        runtime_upper,
+	"lower":        runtime_lower,
 }
 
 func runtime_add(x, y interface{}) interface{} {
@@ -303,3 +307,12 @@ func runtime_safeHTMLAttribute(arg string) template.HTMLAttr {
 func runtime_safeJS(arg string) template.JS {
 	return template.JS(arg)
 }
+
+func runtime_upper(arg string) string {
+    return strings.ToUpper(arg)
+}
+
+func runtime_lower(arg string) string {
+    return strings.ToLower(arg)
+}
+

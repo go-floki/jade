@@ -167,6 +167,18 @@ Expressions can be used within attributes
 
     img(alt=Name + " " + LastName, src=Avatar)
 
+### Pipes
+
+One of the most powerful components of Go templates is the ability to stack actions one after another. This is done by using pipes. Borrowed from Unix pipes, the concept is simple, each pipeline’s output becomes the input of the following pipe.
+
+go-jade supports pipes as well.
+
+    p #{"foo" | upper}
+
+becomes
+
+    <p>FOO</p>
+
 ### Variables
 
 It is possible to define dynamic variables within templates,
