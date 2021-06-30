@@ -3,8 +3,11 @@ package parser
 import (
 	"bytes"
 	"fmt"
+	"github.com/go-floki/jade/path"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,12 +16,14 @@ import (
 const DebugParser = false
 
 type Parser struct {
-	scanner      *scanner
-	filename     string
-	currenttoken *token
-	namedBlocks  map[string]*NamedBlock
-	parent       *Parser
-	result       *Block
+	scanner       *scanner
+	filename      string
+	fs            http.FileSystem
+	pathSeparator rune
+	currenttoken  *token
+	namedBlocks   map[string]*NamedBlock
+	parent        *Parser
+	result        *Block
 }
 
 func newParser(rdr io.Reader) *Parser {
@@ -33,7 +38,18 @@ func StringParser(input string) (*Parser, error) {
 }
 
 func FileParser(filename string) (*Parser, error) {
-	data, err := ioutil.ReadFile(filename)
+	return FileParserFs(http.Dir(""), os.PathSeparator, filename)
+}
+
+func FileParserFs(fs http.FileSystem, pathSeparator rune, filename string) (*Parser, error) {
+	file, err := fs.Open(filename)
+
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
 
 	if err != nil {
 		return nil, err
@@ -41,11 +57,17 @@ func FileParser(filename string) (*Parser, error) {
 
 	parser := newParser(bytes.NewReader(data))
 	parser.filename = filename
+	parser.fs = fs
+	parser.pathSeparator = pathSeparator
 	return parser, nil
 }
 
 func (p *Parser) FileName(fileName string) {
-    p.filename = fileName
+	p.filename = fileName
+}
+
+func (p *Parser) FileSystem(fs http.FileSystem) {
+	p.fs = fs
 }
 
 func (p *Parser) Parse() *Block {
@@ -66,8 +88,8 @@ func (p *Parser) Parse() *Block {
 			} else {
 				trace := make([]byte, 1024)
 				_ = runtime.Stack(trace, true)
-                errMessage := fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d\n%s", r, pos.LineNum, pos.ColNum, pos.TokenLength, trace)
-                fmt.Println(errMessage)
+				errMessage := fmt.Sprintf("Jade Error: %v - Line: %d, Column: %d, Length: %d\n%s", r, pos.LineNum, pos.ColNum, pos.TokenLength, trace)
+				fmt.Println(errMessage)
 				panic(errMessage)
 			}
 		}
@@ -131,13 +153,17 @@ func (p *Parser) parseRelativeFile(filename string) *Parser {
 		panic("Unable to import or extend " + filename + " in a non filesystem based parser.")
 	}
 
-	filename = filepath.Join(filepath.Dir(p.filename), filename)
+	filename = path.Convert(p.pathSeparator, filename, func(fileName string) string {
+		parserPath := path.ToOsSeparator(p.pathSeparator, p.filename)
+		parserPath = filepath.Dir(parserPath)
+		return filepath.Join(parserPath, filename)
+	})
 
-	if strings.IndexRune(filepath.Base(filename), '.') < 0 {
+	if strings.IndexRune(path.Convert(p.pathSeparator, filename, filepath.Base), '.') < 0 {
 		filename = filename + ".jade"
 	}
 
-	parser, err := FileParser(filename)
+	parser, err := FileParserFs(p.fs, p.pathSeparator, filename)
 	if err != nil {
 		panic("Unable to read " + filename + ", Error: " + string(err.Error()))
 	}
@@ -283,9 +309,9 @@ func (p *Parser) parseExtends() *Block {
 
 	tok := p.expect(tokExtends)
 
-    if DebugParser {
-        fmt.Println("Parsing:", tok.Value)
-    }
+	if DebugParser {
+		fmt.Println("Parsing:", tok.Value)
+	}
 
 	parser := p.parseRelativeFile(tok.Value)
 	parser.Parse()
@@ -547,18 +573,18 @@ readmore:
 
 		p.advance()
 
-        switch p.currenttoken.Kind {
-            case tokId:
-                innerTag := p.parseTaglessId()
-                block.push(innerTag)
-            case tokClassName:
-                innerTag := p.parseTaglessClass()
-                block.push(innerTag)
-            case tokTag:
-                innerTag := p.parseTag()
-                block.push(innerTag)
+		switch p.currenttoken.Kind {
+		case tokId:
+			innerTag := p.parseTaglessId()
+			block.push(innerTag)
+		case tokClassName:
+			innerTag := p.parseTaglessClass()
+			block.push(innerTag)
+		case tokTag:
+			innerTag := p.parseTag()
+			block.push(innerTag)
 
-        }
+		}
 
 	case tokId:
 		id := p.expect(tokId)
