@@ -83,8 +83,11 @@ type Options struct {
 	// In this form, Amber emits line number comments in the output template. It is usable in debugging environments.
 	// Default: false
 	LineNumbers bool
+	// Templates source file system
 	// Default: http.Dir("")
 	Fs http.FileSystem
+	// The path separator to use for the file system.
+	// Enables using with go:embed file system, which has strictly '/' as the path separator.
 	// Default: os.PathSeparator
 	PathSeparator rune
 
