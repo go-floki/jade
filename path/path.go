@@ -19,7 +19,7 @@ func Convert(pathSeparator rune, path string, osFn func (path string) string) st
 		}
 	}
 
-	return path
+	return osFn(path)
 }
 
 func ToOsSeparator(pathSeparator rune, path string) string {
