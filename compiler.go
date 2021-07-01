@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-floki/jade/parser"
+	"github.com/go-floki/jade/path"
 	"go/ast"
 	gp "go/parser"
 	gt "go/token"
 	"html/template"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -81,6 +83,10 @@ type Options struct {
 	// In this form, Amber emits line number comments in the output template. It is usable in debugging environments.
 	// Default: false
 	LineNumbers bool
+	// Default: http.Dir("")
+	Fs http.FileSystem
+	// Default: os.PathSeparator
+	PathSeparator rune
 
     // Custom functions
     Funcs template.FuncMap
@@ -94,7 +100,7 @@ type DirOptions struct {
 	Recursive bool
 }
 
-var DefaultOptions = Options{true, false, nil}
+var DefaultOptions = Options{true, false, http.Dir(""), os.PathSeparator, nil}
 var DefaultDirOptions = DirOptions{".jade", true}
 
 // Parses and compiles the supplied jade template string. Returns corresponding Go Template (html/templates) instance.
@@ -131,7 +137,7 @@ func CompileFile(filename string, options Options) (*template.Template, error) {
 // If option for recursive is True, this parses every file of relevant extension
 // in all subdirectories. The key then is the path e.g: "layouts/layout"
 func CompileDir(dirname string, dopt DirOptions, opt Options) (map[string]*template.Template, error) {
-	dir, err := os.Open(dirname)
+	dir, err := opt.Fs.Open(dirname)
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +152,11 @@ func CompileDir(dirname string, dopt DirOptions, opt Options) (map[string]*templ
 	for _, file := range files {
 		// filename is for example "index.jade"
 		filename := file.Name()
-		fileext := filepath.Ext(filename)
+		fileext := filepath.Ext(filepath.Clean(filename))
 
 		// If recursive is true and there's a subdirectory, recurse
 		if dopt.Recursive && file.IsDir() {
-			dirpath := filepath.Join(dirname, filename)
+			dirpath := path.Join(opt.PathSeparator, dirname, filename)
 			subcompiled, err := CompileDir(dirpath, dopt, opt)
 			if err != nil {
 				return nil, err
@@ -158,12 +164,12 @@ func CompileDir(dirname string, dopt DirOptions, opt Options) (map[string]*templ
 			// Copy templates from subdirectory into parent template mapping
 			for k, v := range subcompiled {
 				// Concat with parent directory name for unique paths
-				key := filepath.Join(filename, k)
+				key := path.Join(opt.PathSeparator, filename, k)
 				compiled[key] = v
 			}
 		} else if fileext == dopt.Ext {
 			// Otherwise compile the file and add to mapping
-			fullpath := filepath.Join(dirname, filename)
+			fullpath := path.Join(opt.PathSeparator, dirname, filename)
 			tmpl, err := CompileFile(fullpath, opt)
 			if err != nil {
 				return nil, err
@@ -204,7 +210,7 @@ func (c *Compiler) ParseFile(filename string) (err error) {
 		}
 	}()
 
-	parser, err := parser.FileParser(filename)
+	parser, err := parser.FileParserFs(c.Options.Fs, c.Options.PathSeparator, filename)
 
 	if err != nil {
 		return
@@ -218,7 +224,7 @@ func (c *Compiler) ParseFile(filename string) (err error) {
 // Compile jade and create a Go Template (html/templates) instance.
 // Necessary runtime functions will be injected and the template will be ready to be executed.
 func (c *Compiler) Compile() (*template.Template, error) {
-	return c.CompileWithName(filepath.Base(c.filename))
+	return c.CompileWithName(path.Convert(c.Options.PathSeparator, c.filename, filepath.Base))
 }
 
 // Same as Compile but allows to specify a name for the template

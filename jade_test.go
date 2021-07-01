@@ -25,11 +25,6 @@ var (
     }
 )
 
-func init() {
-    flag.Parse()
-}
-
-
 func Test_Cases(t *testing.T) {
     casesDir := "./test/cases"
 
@@ -37,9 +32,6 @@ func Test_Cases(t *testing.T) {
     for _, f := range files {
         name := f.Name()
         if strings.Index(name, ".jade") != -1 {
-            if *selCase != "" && strings.Index(name, *selCase) == -1 {
-                continue
-            }
 
             fmt.Println("--- TEST:", name)
 
